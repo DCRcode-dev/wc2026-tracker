@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DCR · WC2026 Bracket Tracker</title>
+<style>
+:root{--bg:#111827;--card:#1c2740;--card2:#232f4e;--txt:#e7ecf7;--mut:#93a3c4;--gold:#f0c84b;--green:#3ddc97;--red:#ff7676;--line:#2e3b5e}
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt);padding:16px;max-width:980px;margin:0 auto}
+h1{font-size:22px;margin:8px 0 2px}h2{font-size:16px;margin:24px 0 8px;color:var(--gold)}
+.sub{color:var(--mut);font-size:13px;margin-bottom:14px}
+.bar{position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:5;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.pts{font-size:20px;font-weight:700;color:var(--gold)}.pill{background:var(--card2);border:1px solid var(--line);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--mut)}
+button{background:var(--gold);border:0;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer}
+button.ghost{background:var(--card2);color:var(--txt);border:1px solid var(--line)}
+.m{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:6px 0;display:grid;grid-template-columns:44px 1fr auto 1fr auto;gap:8px;align-items:center;font-size:14px}
+.m .no{color:var(--mut);font-size:12px}.m .ta{text-align:right}.m .tb{text-align:left}
+.pick{color:var(--mut);font-size:12px;grid-column:2/6}
+.sc{display:flex;gap:4px;align-items:center}
+input.s{width:38px;background:#0e1526;border:1px solid var(--line);border-radius:6px;color:var(--txt);text-align:center;padding:5px 2px;font-size:14px}
+select{background:#0e1526;border:1px solid var(--line);border-radius:6px;color:var(--txt);padding:4px;font-size:12px}
+.won{border-left:4px solid var(--green)}.lost{border-left:4px solid var(--red)}.part{border-left:4px solid var(--gold)}
+.badge{font-size:11px;border-radius:10px;padding:2px 8px;background:var(--card2);color:var(--mut)}
+.badge.g{color:var(--green)}.badge.r{color:var(--red)}.badge.y{color:var(--gold)}
+.grp{margin-top:8px}.note{font-size:12px;color:var(--mut);margin:6px 0}
+.bonus{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:6px 0;font-size:14px}
+#status{font-size:12px;color:var(--mut)}
+details summary{cursor:pointer;color:var(--gold);font-size:14px;margin:14px 0 4px}
+</style>
+</head>
+<body>
+<h1>⚽ DCR — ManMarked WC2026 Tracker</h1>
+<div class="sub">Your 104 picks vs real results · Scoring: group result 1 / exact 3 / scorer +2 · knockout result 2 / exact 6 / scorer +4 (route must be correct) · tables 1pt per position +2 bonus</div>
+<div class="bar">
+  <span class="pts" id="total">0 pts</span>
+  <span class="pill" id="break"></span>
+  <button id="sync">⟳ Sync live scores</button>
+  <button class="ghost" id="reset">Clear entered results</button>
+  <span id="status"></span>
+</div>
+<div class="note">Enter actual scores manually (saved in your browser automatically), or hit Sync to try pulling finished results from TheSportsDB. For each match, set the scorer flag if your first-goalscorer pick hit.</div>
+<h2>🏆 Pool leaderboard — ManMarked cross-reference</h2>
+<div class="note">The ManMarked database needs your login, so live API sync isn't possible from a local file. Instead: open the <a href="https://manmarked-private-beta.vercel.app/pool/wc2026-live/leaderboard" target="_blank" style="color:var(--gold)">leaderboard page</a>, select all (Cmd+A), copy (Cmd+C), and paste below. Your rank is parsed and saved instantly.</div>
+<textarea id="lbpaste" placeholder="Paste the whole leaderboard page here…" style="width:100%;height:70px;background:#0e1526;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:8px;font-size:12px"></textarea>
+<div id="lbout" style="margin:8px 0 4px"></div>
+<div id="lbtable"></div>
+
+<div id="app"></div>
+
+<script>
+// ---- leaderboard paste-import ----
+const MYNAME='DCR';
+function parseLB(txt){
+  const rows=[];
+  const re=/^\s*(\d+)\s+(.+?)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*$/gm;
+  let m;while((m=re.exec(txt))!==null){rows.push({pos:+m[1],name:m[2].trim(),pts:+m[3]});}
+  return rows;
+}
+function renderLB(){
+  const data=JSON.parse(localStorage.getItem('wc26lb')||'null');
+  const out=document.getElementById('lbout'),tbl=document.getElementById('lbtable');
+  if(!data||!data.rows.length){out.innerHTML='<span class="badge">No leaderboard imported yet</span>';tbl.innerHTML='';return;}
+  const me=data.rows.find(r=>r.name===MYNAME);
+  const leader=data.rows[0];
+  out.innerHTML=me
+    ?`<span class="pts">You are #${me.pos} of ${data.rows.length}</span> <span class="pill">${me.pts} pts · leader ${leader.name} ${leader.pts} pts · gap ${leader.pts-me.pts}</span> <span class="badge">imported ${data.when}</span>`
+    :'<span class="badge r">Couldn\'t find "DCR" in the pasted leaderboard</span>';
+  const top=data.rows.slice(0,5);
+  tbl.innerHTML='<div class="note">'+top.map(r=>`${r.pos}. ${r.name} — ${r.pts}`).join(' · ')+(me&&me.pos>5?` · … · <b style="color:var(--gold)">${me.pos}. ${me.name} — ${me.pts}</b>`:'')+'</div>';
+}
+document.getElementById('lbpaste').addEventListener('input',e=>{
+  const rows=parseLB(e.target.value);
+  if(rows.length){localStorage.setItem('wc26lb',JSON.stringify({rows,when:new Date().toLocaleString()}));e.target.value='';renderLB();}
+});
+renderLB();
+</script>
+
+<script>
+// num, stage, A, pickA, pickB, B, scorer, group(for group stage)
+const P=[
+[1,'G','Mexico',3,0,'South Africa','Raúl Jiménez','A'],[2,'G','Korea Republic',3,0,'Czechia','Son Heung-min','A'],[25,'G','Czechia',1,0,'South Africa','Patrik Schick','A'],[28,'G','Mexico',2,1,'Korea Republic','Raúl Jiménez','A'],[53,'G','Czechia',0,2,'Mexico','Raúl Jiménez','A'],[54,'G','South Africa',0,2,'Korea Republic','Son Heung-min','A'],
+[3,'G','Canada',3,0,'Bosnia and Herzegovina','Jonathan David','B'],[5,'G','Qatar',0,3,'Switzerland','Breel Embolo','B'],[26,'G','Switzerland',2,0,'Bosnia and Herzegovina','Breel Embolo','B'],[27,'G','Canada',2,0,'Qatar','Jonathan David','B'],[49,'G','Switzerland',2,1,'Canada','Breel Embolo','B'],[50,'G','Bosnia and Herzegovina',2,1,'Qatar','Edin Džeko','B'],
+[6,'G','Brazil',2,1,'Morocco','Vinícius Júnior','C'],[7,'G','Haiti',0,2,'Scotland','Ché Adams','C'],[30,'G','Scotland',0,1,'Morocco','Soufiane Rahimi','C'],[31,'G','Brazil',3,0,'Haiti','Vinícius Júnior','C'],[51,'G','Scotland',0,1,'Brazil','Vinícius Júnior','C'],[52,'G','Morocco',2,0,'Haiti','Soufiane Rahimi','C'],
+[4,'G','USA',2,1,'Paraguay','Ricardo Pepi','D'],[8,'G','Australia',0,2,'Türkiye','Kerem Aktürkoğlu','D'],[29,'G','USA',3,0,'Australia','Ricardo Pepi','D'],[32,'G','Türkiye',1,0,'Paraguay','Kerem Aktürkoğlu','D'],[59,'G','Türkiye',1,2,'USA','Ricardo Pepi','D'],[60,'G','Paraguay',2,0,'Australia','Julio Enciso','D'],
+[9,'G','Germany',3,0,'Curaçao','Kai Havertz','E'],[11,'G','Côte d\'Ivoire',1,2,'Ecuador','Enner Valencia','E'],[34,'G','Germany',2,1,'Côte d\'Ivoire','Kai Havertz','E'],[35,'G','Ecuador',2,0,'Curaçao','Enner Valencia','E'],[55,'G','Curaçao',0,2,'Côte d\'Ivoire','Ange-Yoan Bonny','E'],[56,'G','Ecuador',1,2,'Germany','Kai Havertz','E'],
+[10,'G','Netherlands',2,1,'Japan','Memphis Depay','F'],[12,'G','Sweden',3,1,'Tunisia','Alexander Isak','F'],[33,'G','Netherlands',2,1,'Sweden','Memphis Depay','F'],[36,'G','Tunisia',0,2,'Japan','Ayase Ueda','F'],[57,'G','Japan',2,1,'Sweden','Ayase Ueda','F'],[58,'G','Tunisia',0,3,'Netherlands','Memphis Depay','F'],
+[14,'G','Belgium',2,1,'Egypt','Romelu Lukaku','G'],[16,'G','IR Iran',2,1,'New Zealand','Mehdi Taremi','G'],[38,'G','Belgium',3,1,'IR Iran','Romelu Lukaku','G'],[40,'G','New Zealand',0,2,'Egypt','Mohamed Salah','G'],[65,'G','Egypt',3,0,'IR Iran','Mohamed Salah','G'],[66,'G','New Zealand',0,3,'Belgium','Romelu Lukaku','G'],
+[13,'G','Spain',4,1,'Cabo Verde','Lamine Yamal','H'],[15,'G','Saudi Arabia',0,2,'Uruguay','Darwin Núñez','H'],[37,'G','Spain',3,0,'Saudi Arabia','Lamine Yamal','H'],[39,'G','Uruguay',3,1,'Cabo Verde','Darwin Núñez','H'],[63,'G','Uruguay',1,2,'Spain','Lamine Yamal','H'],[64,'G','Cabo Verde',3,2,'Saudi Arabia','Gilson Benchimol','H'],
+[17,'G','France',2,1,'Senegal','Kylian Mbappé','I'],[18,'G','Iraq',0,2,'Norway','Erling Haaland','I'],[42,'G','France',3,0,'Iraq','Kylian Mbappé','I'],[43,'G','Norway',2,1,'Senegal','Erling Haaland','I'],[61,'G','Norway',1,2,'France','Kylian Mbappé','I'],[62,'G','Senegal',4,2,'Iraq','Sadio Mané','I'],
+[19,'G','Argentina',3,2,'Algeria','Lionel Messi','J'],[20,'G','Austria',2,0,'Jordan','Marko Arnautović','J'],[41,'G','Argentina',2,1,'Austria','Lionel Messi','J'],[44,'G','Jordan',2,4,'Algeria','Mohamed Amoura','J'],[71,'G','Jordan',0,3,'Argentina','Lionel Messi','J'],[72,'G','Algeria',1,2,'Austria','Marko Arnautović','J'],
+[21,'G','Portugal',3,0,'Congo DR','Cristiano Ronaldo','K'],[24,'G','Uzbekistan',2,3,'Colombia','Luis Díaz','K'],[45,'G','Portugal',3,2,'Uzbekistan','Cristiano Ronaldo','K'],[48,'G','Colombia',2,0,'Congo DR','Luis Díaz','K'],[69,'G','Congo DR',2,4,'Uzbekistan','Eldor Shomurodov','K'],[70,'G','Colombia',1,2,'Portugal','Cristiano Ronaldo','K'],
+[22,'G','England',2,1,'Croatia','Harry Kane','L'],[23,'G','Ghana',5,3,'Panama','Abdul Fatawu','L'],[46,'G','England',3,2,'Ghana','Harry Kane','L'],[47,'G','Panama',0,2,'Croatia','Andrej Kramarić','L'],[67,'G','Panama',0,3,'England','Harry Kane','L'],[68,'G','Croatia',3,2,'Ghana','Andrej Kramarić','L'],
+[73,'R32','Korea Republic',1,2,'Canada','Jonathan David'],[74,'R32','Brazil',2,1,'Japan','Vinícius Júnior'],[75,'R32','Germany',2,1,'Paraguay','Kai Havertz'],[76,'R32','Netherlands',2,1,'Morocco','Memphis Depay'],[77,'R32','Ecuador',1,2,'Norway','Erling Haaland'],[78,'R32','France',2,1,'Sweden','Kylian Mbappé'],[79,'R32','Mexico',2,1,'Scotland','Raúl Jiménez'],[80,'R32','England',2,1,'Uzbekistan','Harry Kane'],
+[81,'R32','Belgium',2,1,'Senegal','Romelu Lukaku'],[82,'R32','USA',2,1,'Côte d\'Ivoire','Christian Pulisic'],[83,'R32','Spain',2,1,'Austria','Lamine Yamal'],[84,'R32','Colombia',2,1,'Croatia','Luis Díaz'],[85,'R32','Switzerland',2,1,'Algeria','Breel Embolo'],[86,'R32','Türkiye',2,1,'Egypt','Kerem Aktürkoğlu'],[87,'R32','Argentina',2,1,'Uruguay','Lionel Messi'],[88,'R32','Portugal',2,1,'Ghana','Cristiano Ronaldo'],
+[89,'R16','Canada',1,2,'Netherlands','Memphis Depay'],[90,'R16','Germany',1,2,'France','Kylian Mbappé'],[91,'R16','Brazil',2,1,'Norway','Vinícius Júnior'],[92,'R16','Mexico',1,2,'England','Harry Kane'],[93,'R16','Colombia',1,2,'Spain','Lamine Yamal'],[94,'R16','USA',2,1,'Belgium','Christian Pulisic'],[95,'R16','Argentina',2,1,'Türkiye','Lionel Messi'],[96,'R16','Switzerland',1,2,'Portugal','Cristiano Ronaldo'],
+[97,'QF','France',2,1,'Netherlands','Kylian Mbappé'],[98,'QF','Spain',2,1,'USA','Lamine Yamal'],[99,'QF','Brazil',1,2,'England','Harry Kane'],[100,'QF','Argentina',2,1,'Portugal','Lionel Messi'],
+[101,'SF','France',1,2,'Spain','Lamine Yamal'],[102,'SF','England',1,2,'Argentina','Lionel Messi'],
+[103,'3rd','France',2,1,'England','Kylian Mbappé'],[104,'F','Spain',2,1,'Argentina','Lamine Yamal']
+];
+const GROUPS={A:['Mexico','Korea Republic','Czechia','South Africa'],B:['Switzerland','Canada','Bosnia and Herzegovina','Qatar'],C:['Brazil','Morocco','Scotland','Haiti'],D:['USA','Türkiye','Paraguay','Australia'],E:['Germany','Ecuador','Côte d\'Ivoire','Curaçao'],F:['Netherlands','Japan','Sweden','Tunisia'],G:['Belgium','Egypt','IR Iran','New Zealand'],H:['Spain','Uruguay','Cabo Verde','Saudi Arabia'],I:['France','Norway','Senegal','Iraq'],J:['Argentina','Austria','Algeria','Jordan'],K:['Portugal','Colombia','Uzbekistan','Congo DR'],L:['England','Croatia','Ghana','Panama']};
+// DCR predicted finishing order per group (for table points)
+const PRED_TABLE={A:['Mexico','Korea Republic','Czechia','South Africa'],B:['Switzerland','Canada','Bosnia and Herzegovina','Qatar'],C:['Brazil','Morocco','Scotland','Haiti'],D:['USA','Türkiye','Paraguay','Australia'],E:['Germany','Ecuador','Côte d\'Ivoire','Curaçao'],F:['Netherlands','Japan','Sweden','Tunisia'],G:['Belgium','Egypt','IR Iran','New Zealand'],H:['Spain','Uruguay','Cabo Verde','Saudi Arabia'],I:['France','Norway','Senegal','Iraq'],J:['Argentina','Austria','Algeria','Jordan'],K:['Portugal','Colombia','Uzbekistan','Congo DR'],L:['England','Croatia','Ghana','Panama']};
+const BONUS=[['Tournament winner','Spain'],['Best player','Lamine Yamal'],['Top goalscorer','Kylian Mbappé'],['Best young player','Lamine Yamal'],['Highest scoring team','Spain']];
+const LSKEY='wc26tracker';
+let S=JSON.parse(localStorage.getItem(LSKEY)||'{}');
+const save=()=>localStorage.setItem(LSKEY,JSON.stringify(S));
+
+function matchPts(p,r){ // r={a,b,scorer:'y'|'n'|'', teamsOk:true}
+  if(r.a===''||r.b===''||r.a==null||r.b==null) return null;
+  const isG=p[1]==='G';
+  const ra=+r.a,rb=+r.b,pa=p[3],pb=p[4];
+  if(!isG && r.teamsOk===false) return {pts:0,label:'route broken',cls:'lost'};
+  const sign=x=>x>0?1:x<0?-1:0;
+  const resOk=sign(pa-pb)===sign(ra-rb);
+  const exact=pa===ra&&pb===rb;
+  let pts=0;
+  if(exact)pts+=isG?3:6; else if(resOk)pts+=isG?1:2;
+  if(r.scorer==='y')pts+=isG?2:4;
+  const cls=exact?'won':resOk?'part':'lost';
+  return {pts,label:exact?'exact':resOk?'result':'miss',cls};
+}
+function computeTables(){
+  // build actual tables from entered group results
+  let pts=0,done=0;
+  for(const g in GROUPS){
+    const rows=P.filter(p=>p[1]==='G'&&p[7]===g);
+    if(rows.some(p=>{const r=S['m'+p[0]];return !r||r.a===''||r.b===''||r.a==null;}))continue;
+    done++;
+    const t={};GROUPS[g].forEach(n=>t[n]={p:0,gd:0,gf:0,n});
+    rows.forEach(p=>{const r=S['m'+p[0]];const a=+r.a,b=+r.b;
+      t[p[2]].gf+=a;t[p[2]].gd+=a-b;t[p[5]].gf+=b;t[p[5]].gd+=b-a;
+      if(a>b)t[p[2]].p+=3;else if(b>a)t[p[5]].p+=3;else{t[p[2]].p++;t[p[5]].p++;}});
+    const order=Object.values(t).sort((x,y)=>y.p-x.p||y.gd-x.gd||y.gf-x.gf).map(x=>x.n);
+    let g4=0;order.forEach((n,i)=>{if(PRED_TABLE[g][i]===n){pts++;g4++;}});
+    if(g4===4)pts+=2;
+  }
+  return {pts,done};
+}
+function render(){
+  const app=document.getElementById('app');app.innerHTML='';
+  let mPts=0,gPts=0,kPts=0;
+  const sections=[['G','Group stage'],['R32','Round of 32'],['R16','Round of 16'],['QF','Quarter-finals'],['SF','Semi-finals'],['3rd','Third place'],['F','Final']];
+  for(const [st,title] of sections){
+    const h=document.createElement('h2');h.textContent=title;app.appendChild(h);
+    P.filter(p=>p[1]===st).forEach(p=>{
+      const id='m'+p[0];const r=S[id]||{a:'',b:'',scorer:''};
+      const res=matchPts(p,r);
+      if(res){if(st==='G')gPts+=res.pts;else kPts+=res.pts;mPts+=res.pts;}
+      const d=document.createElement('div');d.className='m '+(res?res.cls:'');
+      d.innerHTML=`<span class="no">M${p[0]}</span>
+        <span class="ta">${p[2]} <b style="color:var(--gold)">${p[3]}</b></span>
+        <span class="sc"><input class="s" id="${id}a" value="${r.a??''}" inputmode="numeric"> - <input class="s" id="${id}b" value="${r.b??''}" inputmode="numeric"></span>
+        <span class="tb"><b style="color:var(--gold)">${p[4]}</b> ${p[5]}</span>
+        <span>${res?`<span class="badge ${res.cls==='won'?'g':res.cls==='part'?'y':'r'}">${res.label} +${res.pts}</span>`:'<span class="badge">pending</span>'}</span>
+        <span class="pick">pick: ${p[3]}-${p[4]} · 1st scorer: ${p[6]}
+          <select id="${id}s"><option value="">scorer ?</option><option value="y" ${r.scorer==='y'?'selected':''}>scorer ✓ (+${st==='G'?2:4})</option><option value="n" ${r.scorer==='n'?'selected':''}>scorer ✗</option></select>
+          ${st!=='G'?`<select id="${id}t"><option value="">teams in slot ✓</option><option value="no" ${r.teamsOk===false?'selected':''}>different teams ✗</option></select>`:''}
+        </span>`;
+      app.appendChild(d);
+      const upd=()=>{S[id]={a:document.getElementById(id+'a').value.trim(),b:document.getElementById(id+'b').value.trim(),scorer:document.getElementById(id+'s').value,teamsOk:st!=='G'?document.getElementById(id+'t').value!=='no':true};save();render();};
+      ['a','b','s'].forEach(x=>document.getElementById(id+x).addEventListener('change',upd));
+      if(st!=='G')document.getElementById(id+'t').addEventListener('change',upd);
+    });
+  }
+  // bonus
+  const h=document.createElement('h2');h.textContent='Bonus picks (10 pts each — set when tournament ends)';app.appendChild(h);
+  let bPts=0;
+  BONUS.forEach((b,i)=>{
+    const id='bonus'+i;const v=S[id]||'';
+    if(v==='y')bPts+=10;
+    const d=document.createElement('div');d.className='bonus';
+    d.innerHTML=`<span>${b[0]}: <b style="color:var(--gold)">${b[1]}</b></span>
+      <select id="${id}"><option value="">?</option><option value="y" ${v==='y'?'selected':''}>hit ✓</option><option value="n" ${v==='n'?'selected':''}>miss ✗</option></select>
+      <span class="badge ${v==='y'?'g':v==='n'?'r':''}">${v==='y'?'+10':v==='n'?'0':'—'}</span>`;
+    app.appendChild(d);
+    document.getElementById(id).addEventListener('change',e=>{S[id]=e.target.value;save();render();});
+  });
+  const tb=computeTables();
+  const total=mPts+tb.pts+bPts;
+  document.getElementById('total').textContent=total+' pts';
+  document.getElementById('break').textContent=`group matches ${gPts} · tables ${tb.pts} (${tb.done}/12 groups settled) · knockout ${kPts} · bonus ${bPts}`;
+}
+// ---- live sync via TheSportsDB (best effort) ----
+const ALIAS={'united states':'USA','usa':'USA','south korea':'Korea Republic','korea republic':'Korea Republic','czech republic':'Czechia','czechia':'Czechia','turkey':'Türkiye','türkiye':'Türkiye','ivory coast':"Côte d'Ivoire","côte d'ivoire":"Côte d'Ivoire",'iran':'IR Iran','ir iran':'IR Iran','cape verde':'Cabo Verde','cabo verde':'Cabo Verde','dr congo':'Congo DR','congo dr':'Congo DR','bosnia and herzegovina':'Bosnia and Herzegovina','bosnia-herzegovina':'Bosnia and Herzegovina'};
+const canon=n=>{n=n.toLowerCase().trim();return ALIAS[n]||n.replace(/\b\w/g,c=>c.toUpperCase());};
+async function sync(){
+  const st=document.getElementById('status');st.textContent='Fetching…';
+  try{
+    const urls=['https://www.thesportsdb.com/api/v1/json/3/eventsseason.php?id=4429&s=2026','https://www.thesportsdb.com/api/v1/json/3/eventsseason.php?id=4429&s=2025-2026'];
+    let evs=[];
+    for(const u of urls){try{const r=await fetch(u);const j=await r.json();if(j.events)evs=evs.concat(j.events);}catch(e){}}
+    if(!evs.length){st.textContent='No live data available yet — enter scores manually.';return;}
+    let hit=0;
+    for(const e of evs){
+      if(e.intHomeScore==null||e.intAwayScore==null)continue;
+      const H=canon(e.strHomeTeam),A=canon(e.strAwayTeam);
+      const p=P.find(p=>(p[2]===H&&p[5]===A)||(p[2]===A&&p[5]===H));
+      if(!p)continue;
+      const id='m'+p[0];const cur=S[id]||{a:'',b:'',scorer:'',teamsOk:true};
+      if(p[2]===H){cur.a=e.intHomeScore;cur.b=e.intAwayScore;}else{cur.a=e.intAwayScore;cur.b=e.intHomeScore;}
+      S[id]=cur;hit++;
+    }
+    save();render();
+    st.textContent=hit?`Updated ${hit} matches (scorer flags stay manual).`:'Fetched data but no finished matches matched yet.';
+  }catch(err){st.textContent='Live fetch failed ('+err.message+') — manual entry still works.';}
+}
+document.getElementById('sync').addEventListener('click',sync);
+document.getElementById('reset').addEventListener('click',()=>{if(confirm('Clear all entered results?')){S={};save();render();}});
+render();
+</script>
+</body>
+</html>
