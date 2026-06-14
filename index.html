@@ -13,7 +13,7 @@ h1{font-size:22px;margin:8px 0 2px}h2{font-size:16px;margin:24px 0 8px;color:var
 .pts{font-size:20px;font-weight:700;color:var(--gold)}.pill{background:var(--card2);border:1px solid var(--line);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--mut)}
 button{background:var(--gold);border:0;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer}
 button.ghost{background:var(--card2);color:var(--txt);border:1px solid var(--line)}
-.m{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:6px 0;display:grid;grid-template-columns:44px 1fr auto 1fr auto;gap:8px;align-items:center;font-size:14px}
+.m{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:6px 0;display:grid;grid-template-columns:60px 1fr auto 1fr auto;gap:8px;align-items:center;font-size:14px}
 .m .no{color:var(--mut);font-size:12px}.m .ta{text-align:right}.m .tb{text-align:left}
 .pick{color:var(--mut);font-size:12px;grid-column:2/6}
 .sc{display:flex;gap:4px;align-items:center}
@@ -101,6 +101,7 @@ const GROUPS={A:['Mexico','Korea Republic','Czechia','South Africa'],B:['Switzer
 // DCR predicted finishing order per group (for table points)
 const PRED_TABLE={A:['Mexico','Korea Republic','Czechia','South Africa'],B:['Switzerland','Canada','Bosnia and Herzegovina','Qatar'],C:['Brazil','Morocco','Scotland','Haiti'],D:['USA','Türkiye','Paraguay','Australia'],E:['Germany','Ecuador','Côte d\'Ivoire','Curaçao'],F:['Netherlands','Japan','Sweden','Tunisia'],G:['Belgium','Egypt','IR Iran','New Zealand'],H:['Spain','Uruguay','Cabo Verde','Saudi Arabia'],I:['France','Norway','Senegal','Iraq'],J:['Argentina','Austria','Algeria','Jordan'],K:['Portugal','Colombia','Uzbekistan','Congo DR'],L:['England','Croatia','Ghana','Panama']};
 const BONUS=[['Tournament winner','Spain'],['Best player','Lamine Yamal'],['Top goalscorer','Kylian Mbappé'],['Best young player','Lamine Yamal'],['Highest scoring team','Spain']];
+const MDATE={1:'11 Jun',2:'11 Jun',3:'12 Jun',4:'12 Jun',5:'13 Jun',6:'13 Jun',7:'13 Jun',8:'13 Jun',9:'14 Jun',10:'14 Jun',11:'14 Jun',12:'14 Jun',13:'15 Jun',14:'15 Jun',15:'15 Jun',16:'15 Jun',17:'16 Jun',18:'16 Jun',19:'16 Jun',20:'16 Jun',21:'17 Jun',22:'17 Jun',23:'17 Jun',24:'17 Jun',25:'18 Jun',26:'18 Jun',27:'18 Jun',28:'18 Jun',29:'19 Jun',30:'19 Jun',31:'19 Jun',32:'19 Jun',33:'20 Jun',34:'20 Jun',35:'20 Jun',36:'20 Jun',37:'21 Jun',38:'21 Jun',39:'21 Jun',40:'21 Jun',41:'22 Jun',42:'22 Jun',43:'22 Jun',44:'22 Jun',45:'23 Jun',46:'23 Jun',47:'23 Jun',48:'23 Jun',49:'24 Jun',50:'24 Jun',51:'24 Jun',52:'24 Jun',53:'24 Jun',54:'24 Jun',55:'25 Jun',56:'25 Jun',57:'25 Jun',58:'25 Jun',59:'25 Jun',60:'25 Jun',61:'26 Jun',62:'26 Jun',63:'26 Jun',64:'26 Jun',65:'26 Jun',66:'26 Jun',67:'27 Jun',68:'27 Jun',69:'27 Jun',70:'27 Jun',71:'27 Jun',72:'27 Jun',73:'28 Jun',74:'29 Jun',75:'29 Jun',76:'29 Jun',77:'30 Jun',78:'30 Jun',79:'30 Jun',80:'1 Jul',81:'1 Jul',82:'1 Jul',83:'2 Jul',84:'2 Jul',85:'2 Jul',86:'3 Jul',87:'3 Jul',88:'3 Jul',89:'4 Jul',90:'4 Jul',91:'5 Jul',92:'5 Jul',93:'6 Jul',94:'6 Jul',95:'7 Jul',96:'7 Jul',97:'9 Jul',98:'10 Jul',99:'11 Jul',100:'11 Jul',101:'14 Jul',102:'15 Jul',103:'18 Jul',104:'19 Jul'};
 const LSKEY='wc26tracker';
 let S=JSON.parse(localStorage.getItem(LSKEY)||'{}');
 const save=()=>localStorage.setItem(LSKEY,JSON.stringify(S));
@@ -147,7 +148,7 @@ function render(){
       const res=matchPts(p,r);
       if(res){if(st==='G')gPts+=res.pts;else kPts+=res.pts;mPts+=res.pts;}
       const d=document.createElement('div');d.className='m '+(res?res.cls:'');
-      d.innerHTML=`<span class="no">M${p[0]}</span>
+      d.innerHTML=`<span class="no">M${p[0]}<br><span style="opacity:.6;font-weight:400;font-size:10px">${MDATE[p[0]]||''}</span></span>
         <span class="ta">${p[2]} <b style="color:var(--gold)">${p[3]}</b></span>
         <span class="sc"><input class="s" id="${id}a" value="${r.a??''}" inputmode="numeric"> - <input class="s" id="${id}b" value="${r.b??''}" inputmode="numeric"></span>
         <span class="tb"><b style="color:var(--gold)">${p[4]}</b> ${p[5]}</span>
