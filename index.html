@@ -181,28 +181,38 @@ function render(){
   document.getElementById('break').textContent=`group matches ${gPts} · tables ${tb.pts} (${tb.done}/12 groups settled) · knockout ${kPts} · bonus ${bPts}`;
 }
 // ---- live sync via TheSportsDB (best effort) ----
-const ALIAS={'united states':'USA','usa':'USA','south korea':'Korea Republic','korea republic':'Korea Republic','czech republic':'Czechia','czechia':'Czechia','turkey':'Türkiye','türkiye':'Türkiye','ivory coast':"Côte d'Ivoire","côte d'ivoire":"Côte d'Ivoire",'iran':'IR Iran','ir iran':'IR Iran','cape verde':'Cabo Verde','cabo verde':'Cabo Verde','dr congo':'Congo DR','congo dr':'Congo DR','bosnia and herzegovina':'Bosnia and Herzegovina','bosnia-herzegovina':'Bosnia and Herzegovina'};
+const ALIAS={'united states':'USA','usa':'USA','south korea':'Korea Republic','korea republic':'Korea Republic','czech republic':'Czechia','czechia':'Czechia','turkey':'Türkiye','türkiye':'Türkiye','ivory coast':"Côte d'Ivoire","côte d'ivoire":"Côte d'Ivoire",'iran':'IR Iran','ir iran':'IR Iran','cape verde':'Cabo Verde','cabo verde':'Cabo Verde','dr congo':'Congo DR','congo dr':'Congo DR','bosnia and herzegovina':'Bosnia and Herzegovina','bosnia-herzegovina':'Bosnia and Herzegovina','curaçao':'Curaçao','curacao':'Curaçao'};
 const canon=n=>{n=n.toLowerCase().trim();return ALIAS[n]||n.replace(/\b\w/g,c=>c.toUpperCase());};
 async function sync(){
-  const st=document.getElementById('status');st.textContent='Fetching…';
+  const st=document.getElementById('status');st.textContent='Fetching finished results...';
+  const KEYS=['123','3'];
+  async function getEvents(path){
+    for(const k of KEYS){
+      try{const r=await fetch('https://www.thesportsdb.com/api/v1/json/'+k+'/'+path);
+        if(!r.ok)continue;const j=await r.json();if(j&&j.events&&j.events.length)return j.events;}catch(e){}
+    }
+    return [];
+  }
   try{
-    const urls=['https://www.thesportsdb.com/api/v1/json/3/eventsseason.php?id=4429&s=2026','https://www.thesportsdb.com/api/v1/json/3/eventsseason.php?id=4429&s=2025-2026'];
     let evs=[];
-    for(const u of urls){try{const r=await fetch(u);const j=await r.json();if(j.events)evs=evs.concat(j.events);}catch(e){}}
-    if(!evs.length){st.textContent='No live data available yet — enter scores manually.';return;}
-    let hit=0;
-    for(const e of evs){
-      if(e.intHomeScore==null||e.intAwayScore==null)continue;
+    evs=evs.concat(await getEvents('eventspastleague.php?id=4429'));
+    evs=evs.concat(await getEvents('eventsseason.php?id=4429&s=2026'));
+    const seen={},uniq=[];
+    for(const e of evs){const k=e.idEvent||(e.strEvent+e.dateEvent);if(!seen[k]){seen[k]=1;uniq.push(e);}}
+    let hit=0,fin=0;
+    for(const e of uniq){
+      if(e.intHomeScore==null||e.intAwayScore==null||e.intHomeScore===''||e.intAwayScore==='')continue;
+      fin++;
       const H=canon(e.strHomeTeam),A=canon(e.strAwayTeam);
       const p=P.find(p=>(p[2]===H&&p[5]===A)||(p[2]===A&&p[5]===H));
       if(!p)continue;
       const id='m'+p[0];const cur=S[id]||{a:'',b:'',scorer:'',teamsOk:true};
-      if(p[2]===H){cur.a=e.intHomeScore;cur.b=e.intAwayScore;}else{cur.a=e.intAwayScore;cur.b=e.intHomeScore;}
+      if(p[2]===H){cur.a=+e.intHomeScore;cur.b=+e.intAwayScore;}else{cur.a=+e.intAwayScore;cur.b=+e.intHomeScore;}
       S[id]=cur;hit++;
     }
     save();render();
-    st.textContent=hit?`Updated ${hit} matches (scorer flags stay manual).`:'Fetched data but no finished matches matched yet.';
-  }catch(err){st.textContent='Live fetch failed ('+err.message+') — manual entry still works.';}
+    st.textContent = hit ? ('Synced '+hit+' match'+(hit>1?'es':'')+' from the live feed ('+fin+' finished found). Scorer & bonus come from your daily brief.') : (fin ? ('Found '+fin+' finished matches but none mapped to your bracket yet.') : 'Free feed has no finished scores yet (it lags badly) - your daily brief covers the gap.');
+  }catch(err){st.textContent='Live fetch failed ('+err.message+') - your daily brief still covers you.';}
 }
 document.getElementById('sync').addEventListener('click',sync);
 document.getElementById('reset').addEventListener('click',()=>{if(confirm('Clear all entered results?')){S={};save();render();}});
