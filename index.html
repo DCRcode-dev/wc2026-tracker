@@ -140,15 +140,19 @@ function computeTables(){
 function render(){
   const app=document.getElementById('app');app.innerHTML='';
   let mPts=0,gPts=0,kPts=0;
-  const sections=[['G','Group stage'],['R32','Round of 32'],['R16','Round of 16'],['QF','Quarter-finals'],['SF','Semi-finals'],['3rd','Third place'],['F','Final']];
-  for(const [st,title] of sections){
-    const h=document.createElement('h2');h.textContent=title;app.appendChild(h);
-    P.filter(p=>p[1]===st).forEach(p=>{
+  const fdate=p=>{const s=MDATE[p[0]]||'';const a=s.split(' ');const m={Jun:5,Jul:6}[a[1]]||11;return new Date(2026,m,(+a[0])||31);};
+  const today=new Date();today.setHours(0,0,0,0);
+  const arr=P.slice().sort((x,y)=>{const dx=fdate(x),dy=fdate(y),ux=dx>=today,uy=dy>=today;if(ux!==uy)return ux?-1:1;return ux?(dx-dy||x[0]-y[0]):(dy-dx||y[0]-x[0]);});
+  let lastK='';
+  arr.forEach(p=>{
+      const st=p[1];
+      const _dk=MDATE[p[0]]||'';
+      if(_dk!==lastK){lastK=_dk;const _d=fdate(p);const _t=_d.getTime()===today.getTime();const _past=_d<today;const _h=document.createElement('h2');_h.innerHTML=_dk+(_t?' <span class="badge y">TODAY</span>':_past?' <span class="badge">played</span>':' <span class="badge y">upcoming</span>');app.appendChild(_h);}
       const id='m'+p[0];const r=S[id]||{a:'',b:'',scorer:''};
       const res=matchPts(p,r);
       if(res){if(st==='G')gPts+=res.pts;else kPts+=res.pts;mPts+=res.pts;}
       const d=document.createElement('div');d.className='m '+(res?res.cls:'');
-      d.innerHTML=`<span class="no">M${p[0]}<br><span style="opacity:.6;font-weight:400;font-size:10px">${MDATE[p[0]]||''}</span></span>
+      d.innerHTML=`<span class="no">M${p[0]}<br><span style="opacity:.6;font-weight:400;font-size:10px">${st==='G'?'Grp '+p[7]:p[1]}</span></span>
         <span class="ta">${p[2]} <b style="color:var(--gold)">${p[3]}</b></span>
         <span class="sc"><input class="s" id="${id}a" value="${r.a??''}" inputmode="numeric"> - <input class="s" id="${id}b" value="${r.b??''}" inputmode="numeric"></span>
         <span class="tb"><b style="color:var(--gold)">${p[4]}</b> ${p[5]}</span>
@@ -162,7 +166,6 @@ function render(){
       ['a','b','s'].forEach(x=>document.getElementById(id+x).addEventListener('change',upd));
       if(st!=='G')document.getElementById(id+'t').addEventListener('change',upd);
     });
-  }
   // bonus
   const h=document.createElement('h2');h.textContent='Bonus picks (10 pts each — set when tournament ends)';app.appendChild(h);
   let bPts=0;
