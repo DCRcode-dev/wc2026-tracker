@@ -577,10 +577,14 @@
       color: var(--text-muted);
       border-bottom: 1px dashed var(--border);
       padding-bottom: 8px;
+      flex-wrap: wrap;
+      gap: 4px;
     }
     .match-info-meta {
       display: flex;
-      gap: 8px;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
     }
     .outcome-badge {
       font-size: 10px;
@@ -1019,6 +1023,15 @@
     <main>
       <!-- DASHBOARD & LEADERBOARD TAB -->
       <div id="tab-dashboard" class="tab-content active">
+        <!-- New Upcoming Matches Section -->
+        <div class="dashboard-upcoming-section" style="margin-bottom: 32px;">
+          <div class="card-header" style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
+            <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: var(--text);">📅 Next Upcoming Matches</h3>
+            <span class="pill primary" style="font-size: 11px;">Kickoffs in local time</span>
+          </div>
+          <div id="upcoming-matches-container" class="matches-grid"></div>
+        </div>
+
         <div class="dashboard-row">
           <!-- Pool Leaderboard Cross-Reference -->
           <div class="dashboard-card leaderboard-card">
@@ -1319,9 +1332,29 @@
       ['Highest scoring team', 'Spain']
     ];
 
+    // Original dates of matches
+    const MDATE = {
+      1:'11 Jun',2:'11 Jun',3:'12 Jun',4:'12 Jun',5:'13 Jun',6:'13 Jun',7:'13 Jun',8:'13 Jun',
+      9:'14 Jun',10:'14 Jun',11:'14 Jun',12:'14 Jun',13:'15 Jun',14:'15 Jun',15:'15 Jun',16:'15 Jun',
+      17:'16 Jun',18:'16 Jun',19:'16 Jun',20:'16 Jun',21:'17 Jun',22:'17 Jun',23:'17 Jun',24:'17 Jun',
+      25:'18 Jun',26:'18 Jun',27:'18 Jun',28:'18 Jun',29:'19 Jun',30:'19 Jun',31:'19 Jun',32:'19 Jun',
+      33:'20 Jun',34:'20 Jun',35:'20 Jun',36:'20 Jun',37:'21 Jun',38:'21 Jun',39:'21 Jun',40:'21 Jun',
+      41:'22 Jun',42:'22 Jun',43:'22 Jun',44:'22 Jun',45:'23 Jun',46:'23 Jun',47:'23 Jun',48:'23 Jun',
+      49:'24 Jun',50:'24 Jun',51:'24 Jun',52:'24 Jun',53:'24 Jun',54:'24 Jun',55:'25 Jun',56:'25 Jun',
+      57:'25 Jun',58:'25 Jun',59:'25 Jun',60:'25 Jun',61:'26 Jun',62:'26 Jun',63:'26 Jun',64:'26 Jun',
+      65:'26 Jun',66:'26 Jun',67:'27 Jun',68:'27 Jun',69:'27 Jun',70:'27 Jun',71:'27 Jun',72:'27 Jun',
+      73:'28 Jun',74:'29 Jun',75:'29 Jun',76:'29 Jun',77:'30 Jun',78:'30 Jun',79:'30 Jun',80:'1 Jul',
+      81:'1 Jul',82:'1 Jul',83:'2 Jul',84:'2 Jul',85:'2 Jul',86:'3 Jul',87:'3 Jul',88:'3 Jul',89:'4 Jul',
+      90:'4 Jul',91:'5 Jul',92:'5 Jul',93:'6 Jul',94:'6 Jul',95:'7 Jul',96:'7 Jul',97:'9 Jul',98:'10 Jul',
+      99:'11 Jul',100:'11 Jul',101:'14 Jul',102:'15 Jul',103:'18 Jul',104:'19 Jul'
+    };
+
     const LSKEY = 'wc26tracker';
     let S = JSON.parse(localStorage.getItem(LSKEY) || '{}');
     const save = () => localStorage.setItem(LSKEY, JSON.stringify(S));
+
+    // Timezone dynamic cache
+    let matchTimestamps = JSON.parse(localStorage.getItem('wc26timestamps') || '{}');
 
     // Global navigation states
     let activeTab = 'dashboard';
@@ -1409,6 +1442,48 @@
       return { settled, order };
     }
 
+    // ---- Date/Time Helper Functions ----
+
+    const parseUtcTimestamp = (ts) => {
+      if (!ts) return null;
+      let iso = ts;
+      if (!ts.endsWith('Z') && !ts.includes('+') && !ts.match(/-\d{2}:\d{2}$/)) {
+        iso += 'Z';
+      }
+      return new Date(iso);
+    };
+
+    const formatLocalTime = (date) => {
+      if (!date) return '';
+      return date.toLocaleString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    };
+
+    const getMatchTimeLabel = (matchNum) => {
+      const ts = matchTimestamps[matchNum];
+      if (ts) {
+        const d = parseUtcTimestamp(ts);
+        if (d) return formatLocalTime(d);
+      }
+      return MDATE[matchNum] || '';
+    };
+
+    const getMatchDate = (p) => {
+      const ts = matchTimestamps[p[0]];
+      if (ts) {
+        const d = parseUtcTimestamp(ts);
+        if (d) return d;
+      }
+      const s = MDATE[p[0]] || '';
+      const a = s.split(' ');
+      const m = { Jun: 5, Jul: 6 }[a[1]] || 5;
+      return new Date(2026, m, (+a[0]) || 31);
+    };
+
     // ---- Render Functions ----
     
     function render() {
@@ -1449,10 +1524,33 @@
       document.getElementById('bonus-breakdown').textContent = `${BONUS.length} tournament picks`;
 
       // Render tab specific content
+      renderUpcomingMatches();
       renderGroupMatches();
       renderGroupStandings();
       renderKnockoutMatches();
       renderBonusPicks();
+    }
+
+    // Render Upcoming Matches on Dashboard
+    function renderUpcomingMatches() {
+      const container = document.getElementById('upcoming-matches-container');
+      container.innerHTML = '';
+      
+      const upcoming = P.filter(p => {
+        const id = 'm' + p[0];
+        const r = S[id] || { a: '', b: '', scorer: '', teamsOk: true };
+        return r.a === '' || r.b === '' || r.a == null || r.b == null;
+      }).sort((x, y) => getMatchDate(x) - getMatchDate(y)).slice(0, 6);
+
+      if (!upcoming.length) {
+        container.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 24px; color: var(--text-muted); font-weight: 500;">🎉 All matches have been completed!</div>';
+        return;
+      }
+
+      upcoming.forEach(p => {
+        const card = buildMatchCard(p);
+        container.appendChild(card);
+      });
     }
 
     // Render Group Matches inside Tab
@@ -1505,6 +1603,7 @@
       const r = S[id] || { a: '', b: '', scorer: '', teamsOk: true };
       const res = matchPts(p, r);
       const isG = p[1] === 'G';
+      const timeLabel = getMatchTimeLabel(p[0]);
 
       const d = document.createElement('div');
       d.className = `match-card ${res ? res.cls : 'pending'}`;
@@ -1520,9 +1619,11 @@
       d.innerHTML = `
         <div class="match-header">
           <div class="match-info-meta">
-            <span>Match ${p[0]}</span>
+            <span>M${p[0]}</span>
             <span>·</span>
             <span>${stageLabel}</span>
+            <span>·</span>
+            <span style="color: var(--primary); font-weight: 600;">${timeLabel}</span>
           </div>
           ${badgeHtml}
         </div>
@@ -1866,10 +1967,15 @@
             cur.b = String(e.intHomeScore);
           }
           S[id] = cur;
+          
+          if (e.strTimestamp) {
+            matchTimestamps[p[0]] = e.strTimestamp;
+          }
           hit++;
         }
         
         save();
+        localStorage.setItem('wc26timestamps', JSON.stringify(matchTimestamps));
         render();
         
         if (hit) {
@@ -1882,6 +1988,42 @@
       } finally {
         syncBtn.disabled = false;
         syncBtn.innerHTML = origText;
+      }
+    }
+
+    // Silent background load for timestamps
+    async function loadTimestamps() {
+      try {
+        const urls = [
+          'https://www.thesportsdb.com/api/v1/json/3/eventsseason.php?id=4429&s=2026',
+          'https://www.thesportsdb.com/api/v1/json/3/eventsseason.php?id=4429&s=2025-2026'
+        ];
+        let evs = [];
+        for (const u of urls) {
+          try {
+            const r = await fetch(u);
+            const j = await r.json();
+            if (j.events) evs = evs.concat(j.events);
+          } catch (e) {}
+        }
+        
+        if (evs.length) {
+          let updated = false;
+          for (const e of evs) {
+            const H = canon(e.strHomeTeam), A = canon(e.strAwayTeam);
+            const p = P.find(p => (p[2] === H && p[5] === A) || (p[2] === A && p[5] === H));
+            if (p && e.strTimestamp && matchTimestamps[p[0]] !== e.strTimestamp) {
+              matchTimestamps[p[0]] = e.strTimestamp;
+              updated = true;
+            }
+          }
+          if (updated) {
+            localStorage.setItem('wc26timestamps', JSON.stringify(matchTimestamps));
+            render();
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load timestamps background:', err);
       }
     }
 
@@ -1898,6 +2040,8 @@
 
     // Initialize application render
     render();
+    // Silent background loading of schedule timestamps
+    loadTimestamps();
   </script>
 </body>
 </html>
