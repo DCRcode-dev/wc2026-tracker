@@ -168,75 +168,30 @@
       display: none !important;
     }
 
-    /* Stats Cards */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 16px;
-      margin-bottom: 32px;
-    }
-    .stat-card {
-      background-color: var(--surface);
-      border: 1px solid var(--border);
+    /* Total Score Banner */
+    .total-score-banner {
+      background: linear-gradient(135deg, var(--primary-light), #dbeafe);
+      border: 1px solid #bfdbfe;
       border-radius: var(--radius);
-      padding: 20px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
+      padding: 24px;
+      text-align: center;
+      margin-bottom: 32px;
       box-shadow: var(--shadow-sm);
       transition: var(--transition);
     }
-    .stat-card:hover {
-      transform: translateY(-2px);
+    .total-score-banner:hover {
       box-shadow: var(--shadow);
     }
-    .stat-card.total-score {
-      background: linear-gradient(135deg, var(--primary-light), #dbeafe);
-      border-color: #bfdbfe;
-    }
-    .stat-icon {
-      font-size: 24px;
-      width: 48px;
-      height: 48px;
-      background-color: var(--surface-alt);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .total-score .stat-icon {
-      background-color: white;
-    }
-    .stat-info {
-      display: flex;
-      flex-direction: column;
-    }
-    .stat-label {
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--text-muted);
-      font-weight: 600;
-    }
-    .stat-value {
-      font-size: 22px;
-      font-weight: 800;
-      margin: 4px 0 0;
-      color: var(--text);
-    }
-    .stat-value .unit {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--text-muted);
-    }
-    .total-score .stat-value {
+    .total-score-banner h2 {
+      font-size: 36px;
+      font-weight: 900;
+      margin: 8px 0 0;
       color: var(--primary);
     }
-    .score-breakdown-text {
-      font-size: 11px;
+    .total-score-banner h2 .unit {
+      font-size: 18px;
+      font-weight: 500;
       color: var(--text-muted);
-      margin-top: 4px;
-      line-height: 1.4;
     }
 
     /* Tabs Navigation */
@@ -973,41 +928,6 @@
       <span class="close-btn" onclick="hideStatus()">&times;</span>
     </div>
 
-    <!-- Stats Dashboard Widget -->
-    <section class="stats-grid">
-      <div class="stat-card total-score">
-        <div class="stat-icon">🏆</div>
-        <div class="stat-info">
-          <span class="stat-label">Total Score</span>
-          <h2 class="stat-value" id="total">0 <span class="unit">pts</span></h2>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">🎯</div>
-        <div class="stat-info">
-          <span class="stat-label">Matches Score</span>
-          <h2 class="stat-value" id="matches-total-val">0 <span class="unit">pts</span></h2>
-          <span class="score-breakdown-text" id="matches-breakdown">group 0 · knockout 0</span>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">📊</div>
-        <div class="stat-info">
-          <span class="stat-label">Group Tables</span>
-          <h2 class="stat-value" id="tables-total-val">0 <span class="unit">pts</span></h2>
-          <span class="score-breakdown-text" id="tables-breakdown">0/12 groups settled</span>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">⭐️</div>
-        <div class="stat-info">
-          <span class="stat-label">Bonus Picks</span>
-          <h2 class="stat-value" id="bonus-total-val">0 <span class="unit">pts</span></h2>
-          <span class="score-breakdown-text" id="bonus-breakdown">5 tournament picks</span>
-        </div>
-      </div>
-    </section>
-
     <!-- Tab Selection -->
     <div class="tabs-wrapper">
       <div class="tabs-container">
@@ -1023,7 +943,14 @@
     <main>
       <!-- DASHBOARD & LEADERBOARD TAB -->
       <div id="tab-dashboard" class="tab-content active">
-        <!-- New Upcoming Matches Section -->
+        <!-- Prominent Total Score Banner -->
+        <div class="total-score-banner">
+          <span style="font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); font-weight: 700;">YOUR TOTAL SCORE</span>
+          <h2 id="total">0 <span class="unit">points</span></h2>
+          <div id="break" style="font-size: 11px; color: var(--text-muted); margin-top: 6px;"></div>
+        </div>
+
+        <!-- Upcoming Matches Section -->
         <div class="dashboard-upcoming-section" style="margin-bottom: 32px;">
           <div class="card-header" style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
             <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: var(--text);">📅 Next Upcoming Matches</h3>
@@ -1511,17 +1438,9 @@
       const tb = computeTables();
       const totalScore = mPts + tb.pts + bPts;
 
-      // Update Dashboard Widgets
-      document.getElementById('total').innerHTML = `${totalScore} <span class="unit">pts</span>`;
-      
-      document.getElementById('matches-total-val').innerHTML = `${mPts} <span class="unit">pts</span>`;
-      document.getElementById('matches-breakdown').textContent = `group stage ${gPts} · knockout ${kPts}`;
-      
-      document.getElementById('tables-total-val').innerHTML = `${tb.pts} <span class="unit">pts</span>`;
-      document.getElementById('tables-breakdown').textContent = `${tb.done}/12 groups settled`;
-      
-      document.getElementById('bonus-total-val').innerHTML = `${bPts} <span class="unit">pts</span>`;
-      document.getElementById('bonus-breakdown').textContent = `${BONUS.length} tournament picks`;
+      // Update Prominent Score Widget
+      document.getElementById('total').innerHTML = `${totalScore} <span class="unit">points</span>`;
+      document.getElementById('break').textContent = `group matches ${gPts} · tables ${tb.pts} (${tb.done}/12 groups settled) · knockout ${kPts} · bonus ${bPts}`;
 
       // Render tab specific content
       renderUpcomingMatches();
